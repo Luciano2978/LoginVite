@@ -5,10 +5,17 @@ import reg from "../assets/register.jpg";
 import { useState } from "react";
 import auth0 from "auth0-js";
 import Ath0Config from "../Auth0Config";
+import axios from "axios";
+import { urlBackend } from "../config";
+import { useDispatch } from "react-redux";
+import { saveDataUser } from "../redux/userSlice";
 
 const webAuth = new auth0.WebAuth(Ath0Config);
 
 export default function Login() {
+
+  const dispatch = useDispatch();
+
   const {
     register: registerSignIn,
     handleSubmit: handleSubmitSignIn,
@@ -29,7 +36,14 @@ export default function Login() {
   const handleSignIn = (data) => {
     const { Email, Contraseña } = data;
 
-    console.log(Email);
+    axios.post(`${urlBackend}GetDataUser`,{Email,Contraseña})
+    .then((response) => {
+      console.log(response);
+      dispatch(saveDataUser(response))
+    })
+    .catch((error) => {
+      console.log(error);
+    })
 
     webAuth.login(
       {
