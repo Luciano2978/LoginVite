@@ -3,20 +3,19 @@ import "../assets/Style/Estilo.css";
 import logo from "../assets/log.svg";
 import reg from "../assets/register.jpg";
 import { useState } from "react";
-import { urlFrontend } from "../config";
 import auth0 from "auth0-js";
+import Ath0Config from "../Auth0Config";
+import axios from "axios";
+import { urlBackend } from "../config";
+import { useDispatch } from "react-redux";
+import { saveDataUser } from "../redux/userSlice";
 
-const auth0Config = {
-  domain: "testerun.us.auth0.com",
-  clientID: "qsyvSMj1lcb68hl1xJj2D0awZpi6KZuk",
-  redirectUri: `${urlFrontend}`, // Cambia esto según tu configuración
-  responseType: "token id_token",
-  scope: "openid profile email",
-};
-
-const webAuth = new auth0.WebAuth(auth0Config);
+const webAuth = new auth0.WebAuth(Ath0Config);
 
 export default function Login() {
+
+  const dispatch = useDispatch();
+
   const {
     register: registerSignIn,
     handleSubmit: handleSubmitSignIn,
@@ -29,42 +28,66 @@ export default function Login() {
     reset: resetSignUp,
     formState: { errors },
   } = useForm();
+
   const [isSignUpMode, setIsSignUpMode] = useState(false);
+  const [errorEmail, setErrorEmail] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // Estado para controlar si la contraseña debe mostrarse
 
   const handleSignIn = (data) => {
-    console.log("Nombre Login, por si diferencia", data.Nombre);
-  };
+    const { Email, Contraseña } = data;
 
-  const [errorEmail, setErrorEmail] = useState("");
+    axios.post(`${urlBackend}GetDataUser`,{Email,Contraseña})
+    .then((response) => {
+      console.log(response);
+      dispatch(saveDataUser(response))
+    })
+    .catch((error) => {
+      console.log(error);
+    })
+
+    webAuth.login(
+      {
+        realm: "Usuarios-Login",
+        email: Email,
+        password: Contraseña,
+      },
+      (err) => {
+        if (err) {
+          console.log("Error al iniciar Sesion en Auth0", err);
+        } else {
+          alert("Inicio de sesion Exitoso");
+        }
+      }
+    );
+  };
 
   const renderErrorMessage = (fieldName) => {
     if (errors[fieldName]) {
-      return <span className="Error-Message-Register">{errors[fieldName].message}</span>;
+      return (
+        <span className="Error-Message-Register">
+          {errors[fieldName].message}
+        </span>
+      );
     }
     return null;
   };
 
   const handleSignUp = (data) => {
-    const nombre = data.Nombre;
-    const apellido = data.Apellido;
-    const cuil = data.Cuil;
-    const telefono = data.Telefono;
-    const email = data.Email;
-    const password = data.Contraseña;
+    const { Nombre, Apellido, Cuil, Telefono, Email, Contraseña } = data;
 
     console.log(data);
 
     webAuth.signup(
       {
-        email,
-        password,
+        email: Email,
+        password: Contraseña,
         connection: "Usuarios-Login", // Cambia esto según tu configuración de Auth0
         user_metadata: {
-          nombre,
-          apellido,
-          cuil,
+          nombre: Nombre,
+          apellido: Apellido,
+          cuil: Cuil,
           rol: "Usuario",
-          telefono,
+          telefono: Telefono,
         },
       },
       (err) => {
@@ -84,6 +107,11 @@ export default function Login() {
 
   const toggleSignUpMode = () => {
     setIsSignUpMode(!isSignUpMode);
+    setShowPassword(false);
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword); // Cambiar el estado para mostrar u ocultar la contraseña
   };
 
   return (
@@ -99,17 +127,28 @@ export default function Login() {
               <i className="fas fa-user fa-lg"></i>
               <input
                 type="text"
-                placeholder="Nombre"
-                {...registerSignIn("Nombre")}
+                placeholder="Email"
+                {...registerSignIn("Email")}
               />
             </div>
             <div className="input-field">
               <i className="fas fa-lock fa-lg"></i>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"} // Cambiar el tipo de entrada según el estado de showPassword
                 placeholder="Contraseña"
                 {...registerSignIn("Contraseña")}
               />
+              <button
+                type="button"
+                className="toggle-password"
+                onClick={togglePasswordVisibility}
+              >
+                <i
+                  className={`fas ${
+                    showPassword ? "fa-eye-slash" : "fa-eye"
+                  } fa-lg`}
+                ></i>
+              </button>
             </div>
             <input type="submit" value="Iniciar Sesion" className="btn solid" />
             <p className="social-text">
@@ -230,7 +269,7 @@ export default function Login() {
             <div className="input-field">
               <i className="fas fa-lock fa-lg"></i>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"} // Cambiar el tipo de entrada según el estado de showPassword
                 placeholder="Contraseña"
                 pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[!@#$%^&*]).{8,}$"
                 title="La contraseña debe tener al menos 8 caracteres de longitud y contener al menos una letra minúscula, una letra mayúscula, un número y un carácter especial (por ejemplo, !@#$%^&*)."
@@ -238,6 +277,17 @@ export default function Login() {
                   required: { value: true, message: "Contraseña Requerida" },
                 })}
               />
+              <button
+                type="button"
+                className="toggle-password"
+                onClick={togglePasswordVisibility}
+              >
+                <i
+                  className={`fas ${
+                    showPassword ? "fa-eye-slash" : "fa-eye"
+                  } fa-lg`}
+                ></i>
+              </button>
             </div>
             {renderErrorMessage("Contraseña")}
             <input type="submit" className="btn" value="Registrarse" />
